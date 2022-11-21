@@ -5,9 +5,7 @@ import com.ahmaddudayef.springjwt.util.Utils.logger
 import io.jsonwebtoken.*
 import io.jsonwebtoken.security.Keys
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.security.core.Authentication
 import org.springframework.stereotype.Component
-import java.nio.charset.StandardCharsets
 import java.security.Key
 import java.util.*
 
@@ -23,14 +21,24 @@ class JwtUtils {
 
     val key: Key = Keys.secretKeyFor(SignatureAlgorithm.HS256)
 
-    fun generateJwtToken(authentication: Authentication): String {
-//        val key: Key = Keys.hmacShaKeyFor(jwtSecret?.toByteArray(StandardCharsets.UTF_8))
-        val userPrincipal = authentication.principal as UserDetailsImpl
-        return Jwts.builder()
-            .setSubject(userPrincipal.username)
-            .setIssuedAt(Date())
-            .setExpiration(Date(Date().time + jwtExpirationMs))
-            .signWith(key)
+//    fun generateJwtToken(authentication: Authentication): String {
+////        val key: Key = Keys.hmacShaKeyFor(jwtSecret?.toByteArray(StandardCharsets.UTF_8))
+//        val userPrincipal = authentication.principal as UserDetailsImpl
+//        return Jwts.builder()
+//            .setSubject(userPrincipal.username)
+//            .setIssuedAt(Date())
+//            .setExpiration(Date(Date().time + jwtExpirationMs))
+//            .signWith(key)
+//            .compact()
+//    }
+
+    fun generateJwtToken(userPrincipal: UserDetailsImpl): String {
+        return generateTokenFromUsername(userPrincipal.username)
+    }
+
+    fun generateTokenFromUsername(username: String): String {
+        return Jwts.builder().setSubject(username).setIssuedAt(Date())
+            .setExpiration(Date(Date().time + jwtExpirationMs)).signWith(key)
             .compact()
     }
 

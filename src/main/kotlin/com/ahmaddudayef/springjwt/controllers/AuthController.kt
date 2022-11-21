@@ -1,15 +1,20 @@
 package com.ahmaddudayef.springjwt.controllers
 
+import com.ahmaddudayef.springjwt.exception.TokenRefreshException
 import com.ahmaddudayef.springjwt.models.ERole
+import com.ahmaddudayef.springjwt.models.RefreshToken
 import com.ahmaddudayef.springjwt.models.Role
 import com.ahmaddudayef.springjwt.models.User
 import com.ahmaddudayef.springjwt.payload.request.LoginRequest
 import com.ahmaddudayef.springjwt.payload.request.SignupRequest
+import com.ahmaddudayef.springjwt.payload.request.TokenRefreshRequest
 import com.ahmaddudayef.springjwt.payload.response.JwtResponse
 import com.ahmaddudayef.springjwt.payload.response.MessageResponse
+import com.ahmaddudayef.springjwt.payload.response.TokenRefreshResponse
 import com.ahmaddudayef.springjwt.repository.RoleRepository
 import com.ahmaddudayef.springjwt.repository.UserRepository
 import com.ahmaddudayef.springjwt.security.jwt.JwtUtils
+import com.ahmaddudayef.springjwt.security.service.RefreshTokenService
 import com.ahmaddudayef.springjwt.security.service.UserDetailsImpl
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
@@ -33,7 +38,8 @@ class AuthController @Autowired constructor(
     val userRepository: UserRepository,
     val roleRepository: RoleRepository,
     val encoder: PasswordEncoder,
-    val jwtUtils: JwtUtils
+    val jwtUtils: JwtUtils,
+    val refreshTokenService: RefreshTokenService
 ) {
 
     @PostMapping("/signin")
@@ -42,20 +48,44 @@ class AuthController @Autowired constructor(
             UsernamePasswordAuthenticationToken(loginRequest.username, loginRequest.password)
         )
         SecurityContextHolder.getContext().authentication = authentication
-        val jwt = jwtUtils.generateJwtToken(authentication)
         val userDetails = authentication.principal as UserDetailsImpl
+        val jwt = jwtUtils.generateJwtToken(userDetails)
         val roles: List<String> = userDetails.authorities.stream()
             .map { item: GrantedAuthority -> item.authority }
             .collect(Collectors.toList())
+        val refreshToken = refreshTokenService.createRefreshToken(userDetails.getId())
         return ResponseEntity.ok(
             JwtResponse(
                 jwt,
+                refreshToken.token!!,
                 userDetails.getId(),
                 userDetails.getUsername(),
                 userDetails.getEmail(),
                 roles
             )
         )
+    }
+
+    @PostMapping("/refreshtoken")
+    fun refreshtoken(@Valid @RequestBody request: TokenRefreshRequest): ResponseEntity<*> {
+        val requestRefreshToken = request.refreshToken
+        return refreshTokenService.findByToken(requestRefreshToken)
+            .map { token: RefreshToken ->
+                refreshTokenService.verifyExpiration(
+                    token
+                )
+            }
+            .map(RefreshToken::user)
+            .map { user: User? ->
+                val token = jwtUtils.generateTokenFromUsername(user?.username!!)
+                ResponseEntity.ok(TokenRefreshResponse(token, requestRefreshToken))
+            }
+            .orElseThrow {
+                TokenRefreshException(
+                    requestRefreshToken,
+                    "Refresh token is not in database!"
+                )
+            }
     }
 
     @PostMapping("/signup")

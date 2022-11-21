@@ -1,11 +1,7 @@
 package com.ahmaddudayef.springjwt.payload.response
 
-data class JwtResponse(
+data class TokenRefreshResponse(
     val accessToken: String,
     val refreshToken: String,
-    val id: Long,
-    val username: String,
-    val email: String,
-    val roles: List<String>,
     val tokenType: String = "Bearer"
 )
